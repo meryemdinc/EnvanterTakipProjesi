@@ -1,7 +1,4 @@
-﻿
-using Infrastructure.Data;
-using Microsoft.EntityFrameworkCore;
-
+﻿using Infrastructure;
 namespace Envanter_Takip_Projesi
 {
     public class Program
@@ -16,10 +13,7 @@ namespace Envanter_Takip_Projesi
             // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
             builder.Services.AddOpenApi();
 
-            //appsetting.json'da DefaultConnection adında bir connection string tanımladık ve onu kullanarak PostgreSQL veritabanına bağlanıyoruz.
-            builder.Services.AddDbContext<ApplicationDbContext>(options =>
-              options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
-
+            builder.Services.AddInfrastructureServices(builder.Configuration);//infrastructure katmanındaki servisleri ekliyoruz
 
             var app = builder.Build();
 
