@@ -8,7 +8,7 @@ namespace Infrastructure.Data.Repositories
     {
         // Interface'e (Menüye), Concrete Class'ı (Mutfağı) atıyoruz ve context'i içine yolluyoruz.
         public IAppUserRepository AppUsers { get; } = new AppUserRepository(context);
-        public IGenericRepository<Assignment> Assignments { get; } = new GenericRepository<Assignment>(context);
+        public IAssignmentRepository Assignments { get; } = new AssignmentRepository(context);
         public IGenericRepository<Department> Departments { get; } = new GenericRepository<Department>(context);
         public IGenericRepository<Employee> Employees { get; } = new GenericRepository<Employee>(context);
         public IInternRepository Interns { get; } = new InternRepository(context);
