@@ -7,7 +7,7 @@ namespace Infrastructure.Data.Repositories
     public class UnitOfWork(ApplicationDbContext context) : IUnitOfWork
     {
         // Interface'e (Menüye), Concrete Class'ı (Mutfağı) atıyoruz ve context'i içine yolluyoruz.
-        public IGenericRepository<AppUser> AppUsers { get; } = new GenericRepository<AppUser>(context);
+        public IAppUserRepository AppUsers { get; } = new AppUserRepository(context);
         public IGenericRepository<Assignment> Assignments { get; } = new GenericRepository<Assignment>(context);
         public IGenericRepository<Department> Departments { get; } = new GenericRepository<Department>(context);
         public IGenericRepository<Employee> Employees { get; } = new GenericRepository<Employee>(context);
