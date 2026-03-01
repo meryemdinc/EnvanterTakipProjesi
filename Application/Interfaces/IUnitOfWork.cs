@@ -9,7 +9,7 @@ namespace Application.Interfaces
        // için Unit Of Work yazıyoruz.
          IAppUserRepository AppUsers { get; } //set yazmıyorux cünkü repository'ler sadece get
                                                        //ile erişilecek, dışarıdan set ile değiştirilmemesi için
-         IGenericRepository<Assignment> Assignments { get; } 
+         IAssignmentRepository Assignments { get; } 
         IGenericRepository<Department> Departments { get; } 
          IGenericRepository<Employee> Employees { get; }
          IInternRepository Interns { get; } 
