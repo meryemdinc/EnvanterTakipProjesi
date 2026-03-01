@@ -7,7 +7,7 @@ namespace Application.Interfaces
     {
        // Bütün repolara tek bir noktadan(tek bir referansla) ulaşmak
        // için Unit Of Work yazıyoruz.
-         IGenericRepository<AppUser> AppUsers { get; } //set yazmıyorux cünkü repository'ler sadece get
+         IAppUserRepository AppUsers { get; } //set yazmıyorux cünkü repository'ler sadece get
                                                        //ile erişilecek, dışarıdan set ile değiştirilmemesi için
          IGenericRepository<Assignment> Assignments { get; } 
         IGenericRepository<Department> Departments { get; } 
