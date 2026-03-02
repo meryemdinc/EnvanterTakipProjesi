@@ -10,7 +10,7 @@ namespace Application.Interfaces
          IAppUserRepository AppUsers { get; } //set yazmıyorux cünkü repository'ler sadece get
                                                        //ile erişilecek, dışarıdan set ile değiştirilmemesi için
          IAssignmentRepository Assignments { get; } 
-        IGenericRepository<Department> Departments { get; } 
+        IDepartmentRepository Departments { get; } 
          IGenericRepository<Employee> Employees { get; }
          IInternRepository Interns { get; } 
         IGenericRepository<InventoryItem> InventoryItems { get; }
