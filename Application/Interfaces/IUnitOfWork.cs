@@ -11,7 +11,7 @@ namespace Application.Interfaces
                                                        //ile erişilecek, dışarıdan set ile değiştirilmemesi için
          IAssignmentRepository Assignments { get; } 
         IDepartmentRepository Departments { get; } 
-         IGenericRepository<Employee> Employees { get; }
+         IEmployeeRepository Employees { get; }
          IInternRepository Interns { get; } 
         IGenericRepository<InventoryItem> InventoryItems { get; }
        IGenericRepository<Maintenance> Maintenances { get; } 
