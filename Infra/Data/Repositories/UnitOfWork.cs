@@ -12,7 +12,7 @@ namespace Infrastructure.Data.Repositories
         public IDepartmentRepository Departments { get; } = new DepartmentRepository(context);
         public IEmployeeRepository Employees { get; } = new EmployeeRepository(context);
         public IInternRepository Interns { get; } = new InternRepository(context);
-        public IGenericRepository<InventoryItem> InventoryItems { get; } = new GenericRepository<InventoryItem>(context);
+        public IInventoryItemRepository InventoryItems { get; } = new InventoryItemRepository(context);
         public IGenericRepository<Maintenance> Maintenances { get; } = new GenericRepository<Maintenance>(context);
         public IGenericRepository<University> Universities { get; } = new GenericRepository<University>(context);
 
