@@ -13,7 +13,7 @@ namespace Application.Interfaces
         IDepartmentRepository Departments { get; } 
          IEmployeeRepository Employees { get; }
          IInternRepository Interns { get; } 
-        IGenericRepository<InventoryItem> InventoryItems { get; }
+        IInventoryItemRepository InventoryItems { get; }
        IGenericRepository<Maintenance> Maintenances { get; } 
         IGenericRepository<University> Universities { get; }
 
