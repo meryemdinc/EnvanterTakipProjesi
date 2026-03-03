@@ -13,7 +13,7 @@ namespace Infrastructure.Data.Repositories
         public IEmployeeRepository Employees { get; } = new EmployeeRepository(context);
         public IInternRepository Interns { get; } = new InternRepository(context);
         public IInventoryItemRepository InventoryItems { get; } = new InventoryItemRepository(context);
-        public IGenericRepository<Maintenance> Maintenances { get; } = new GenericRepository<Maintenance>(context);
+        public IMaintenanceRepository Maintenances { get; } = new MaintenanceRepository(context);
         public IGenericRepository<University> Universities { get; } = new GenericRepository<University>(context);
 
         public Task<int> SaveChangesAsync() => context.SaveChangesAsync();
