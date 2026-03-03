@@ -14,7 +14,7 @@ namespace Application.Interfaces
          IEmployeeRepository Employees { get; }
          IInternRepository Interns { get; } 
         IInventoryItemRepository InventoryItems { get; }
-       IGenericRepository<Maintenance> Maintenances { get; } 
+       IMaintenanceRepository Maintenances { get; } 
         IGenericRepository<University> Universities { get; }
 
         Task<int> SaveChangesAsync();//int, veritabanında kaç satıra değişiklik uygulandığını döndürür
