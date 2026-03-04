@@ -14,7 +14,7 @@ namespace Infrastructure.Data.Repositories
         public IInternRepository Interns { get; } = new InternRepository(context);
         public IInventoryItemRepository InventoryItems { get; } = new InventoryItemRepository(context);
         public IMaintenanceRepository Maintenances { get; } = new MaintenanceRepository(context);
-        public IGenericRepository<University> Universities { get; } = new GenericRepository<University>(context);
+        public IUniversityRepository Universities { get; } = new UniversityRepository(context);
 
         public Task<int> SaveChangesAsync() => context.SaveChangesAsync();
 
