@@ -4,6 +4,7 @@ using Infrastructure.Data.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using System.Reflection;
 
 namespace Infrastructure; //Bu sınıf, uygulamanın servislerini merkezi bir yerde kaydetmek ve yönetmek
                           //için kullanılabilir. Genellikle Dependency Injection (DI) konteynerine
@@ -22,7 +23,8 @@ public static class ServiceRegistration
     {
         services.AddDbContext<ApplicationDbContext>(options => options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));//program.csde uygulamaya
                                                                                                                                           //veritabanını tanıttıgımız kısmı
-                                                                                                                                          //oradan silip bu class a ekledik
+
+        services.AddAutoMapper(Assembly.GetExecutingAssembly());
         services.AddScoped<IUnitOfWork, UnitOfWork>();
        
     }
