@@ -1,0 +1,6 @@
+@Envanter_Takip_Projesi_HostAddress = http://localhost:5007
+
+GET {{Envanter_Takip_Projesi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
