@@ -21,11 +21,17 @@ namespace Application.Interfaces.Repositories
 
         // 3. Stajyere göre zimmetleri getir (Eski + Yeni hepsi)
         Task<IEnumerable<Assignment>> GetAssignmentsByInternIdAsync(int internId);
+        //4. stajyere göre zimmetleri getir ama aktif olarak zimmetli olanları
 
-        // 4. Çalışana göre zimmetleri getir (Eski + Yeni hepsi)
+        Task<IEnumerable<Assignment>> GetActiveAssignmentsByInternIdAsync(int internId);
+
+        // 5. Çalışana göre zimmetleri getir (Eski + Yeni hepsi)
         Task<IEnumerable<Assignment>> GetAssignmentsByEmployeeIdAsync(int employeeId);
+        //6. Çalışana göre zimmetleri getir ama aktif olarak zimmetli olanları
+        Task<IEnumerable<Assignment>> GetActiveAssignmentsByEmployeeIdAsync(int employeeId);
 
-        // 5. Şirkette şu an aktif olan (Geri dönmemiş) TÜM zimmetleri listele
+        // 7. Şirkette şu an aktif olan (Geri dönmemiş) TÜM zimmetleri listele
         Task<IEnumerable<Assignment>> GetActiveAssignmentsAsync();
+
     }
 }
