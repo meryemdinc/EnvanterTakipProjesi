@@ -24,7 +24,6 @@ namespace Application.Services
         }
 
         // Yeni zimmet oluşturma
-        // Yeni zimmet oluşturma
         public async Task CreateAsync(CreateAssignmentDto createAssignmentDto)
         {
             // 1. Önce zimmetlenecek eşyayı bulalım
@@ -45,7 +44,7 @@ namespace Application.Services
             var assignment = mapper.Map<Assignment>(createAssignmentDto);
             await unitOfWork.Assignments.AddAsync(assignment);
 
-            // 4. Eşyanın durumunu "Kullanımda" olarak güncelle! (Kendi Enum'ına göre düzenle, örn: InUse)
+            // 4. Eşyanın durumunu "zimmetli" olarak güncelle! 
             inventoryItem.Status = ItemStatus.Assigned;
             unitOfWork.InventoryItems.Update(inventoryItem);
 
