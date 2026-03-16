@@ -55,7 +55,7 @@ namespace Infrastructure.Data.Repositories
          .ToListAsync();
         }
         // 3. Stajyere göre zimmetleri getir (Eski + Yeni hepsi)
-       public async Task<IEnumerable<Assignment>> GetAssignmentsByInternIdAsync(int internId)
+        public async Task<IEnumerable<Assignment>> GetAssignmentsByInternIdAsync(int internId)
         {
             return await context.Assignments
          .Where(a => !a.IsDeleted && a.InternId == internId)
@@ -65,8 +65,23 @@ namespace Infrastructure.Data.Repositories
          .OrderByDescending(a => a.AssignedAt)
          .ToListAsync();
         }
-        // 4. Çalışana göre zimmetleri getir (Eski + Yeni hepsi)
-      public async Task<IEnumerable<Assignment>> GetAssignmentsByEmployeeIdAsync(int employeeId)
+
+        //4
+        public async Task<IEnumerable<Assignment>> GetActiveAssignmentsByInternIdAsync(int internId)
+        {
+
+            return await context.Assignments
+    .Where(a => !a.IsDeleted && a.InternId == internId && a.ActualReturnAt == null)
+    .Include(a => a.Employee)
+    .Include(a => a.Intern)
+    .Include(a => a.InventoryItem)
+    .OrderByDescending(a => a.AssignedAt)
+    .ToListAsync();
+          
+        }
+
+        // 5. Çalışana göre zimmetleri getir (Eski + Yeni hepsi)
+        public async Task<IEnumerable<Assignment>> GetAssignmentsByEmployeeIdAsync(int employeeId)
         {
             return await context.Assignments
          .Where(a => !a.IsDeleted && a.EmployeeId == employeeId)
@@ -76,8 +91,18 @@ namespace Infrastructure.Data.Repositories
          .OrderByDescending(a => a.AssignedAt)
          .ToListAsync();
         }
-
-        // 5. Şirkette şu an aktif olan (Geri dönmemiş) TÜM zimmetleri listele
+        //6
+      public async  Task<IEnumerable<Assignment>> GetActiveAssignmentsByEmployeeIdAsync(int employeeId)
+        {
+            return await context.Assignments
+     .Where(a => !a.IsDeleted && a.EmployeeId == employeeId&& a.ActualReturnAt==null)
+     .Include(a => a.Employee)
+     .Include(a => a.Intern)
+     .Include(a => a.InventoryItem)
+     .OrderByDescending(a => a.AssignedAt)
+     .ToListAsync();
+        }
+        // 7. Şirkette şu an aktif olan (Geri dönmemiş) TÜM zimmetleri listele
        public async Task<IEnumerable<Assignment>> GetActiveAssignmentsAsync()
         {
             return await context.Assignments
