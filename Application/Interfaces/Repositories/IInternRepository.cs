@@ -9,5 +9,7 @@ namespace Application.Interfaces.Repositories
 
         Task<IEnumerable<Intern>> GetInternsByUniversityAsync(int universityId);
         Task<IEnumerable<Intern>> GetActiveInternsAsync();// Aktif stajyerleri getirir (end date ,start date,IsDeleted)
+
+        Task<Intern?> GetByEmailAsync(string email);
     }
 }
