@@ -48,5 +48,11 @@ namespace Infrastructure.Data.Repositories
                 .Include(i => i.Assignments)
                 .ToListAsync();
         }
+
+        public async Task<Intern?> GetByEmailAsync(string email)
+        {
+            return await context.Interns.FirstOrDefaultAsync(i => i.Email == email && !i.IsDeleted);
+
+        }
     }
 }
