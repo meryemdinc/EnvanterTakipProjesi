@@ -1,4 +1,7 @@
-﻿using Infrastructure;
+﻿using Envanter_Takip_Projesi.API.Extensions;
+using Envanter_Takip_Projesi.Extensions;
+using Envanter_Takip_Projesi.Middlewares;
+using Infrastructure;
 namespace Envanter_Takip_Projesi
 {
     public class Program
@@ -14,8 +17,12 @@ namespace Envanter_Takip_Projesi
             builder.Services.AddOpenApi();
 
             builder.Services.AddInfrastructureServices(builder.Configuration);//infrastructure katmanındaki servisleri ekliyoruz
+            builder.Services.AddAuthServices(builder.Configuration);//auth işlemleri için gerekli servisleri ekliyoruz
+            builder.Services.AddSwaggerServices();
 
             var app = builder.Build();
+
+            app.UseCustomExceptionHandler();
 
             // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())
