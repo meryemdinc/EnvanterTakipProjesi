@@ -13,7 +13,5 @@
 
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
-
-        public int Score { get; set; } // Staj bitince puan verilebilir
     }
 }
