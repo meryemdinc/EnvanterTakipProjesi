@@ -24,7 +24,7 @@ namespace Envanter_Takip_Projesi.Extensions
                         ValidateLifetime = true,
                         ValidateIssuerSigningKey = true,
                         ValidIssuer = configuration["JwtSettings:Issuer"],
-                        ValidAudience = configuration["JwtSetting:Audience"],
+                        ValidAudience = configuration["JwtSettings:Audience"],
                         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["JwtSettings:SecretKey"]!))
                     };
 
