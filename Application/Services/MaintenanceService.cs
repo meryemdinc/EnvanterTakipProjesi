@@ -4,6 +4,7 @@ using Application.Interfaces;
 using Application.DTOs.Maintenances;
 using Domain.Entities;
 using Domain.Enums;
+using Application.Exceptions;
 
 namespace Application.Services
 {
@@ -20,7 +21,7 @@ namespace Application.Services
             var maintenance = await unitOfWork.Maintenances.GetByIdAsync(id);
             if (maintenance == null)
             {
-                throw new Exception("Aranan bakım kaydı bulunamadı.");
+                throw new NotFoundException("Aranan bakım kaydı bulunamadı.");
             }
             return mapper.Map<MaintenanceDto>(maintenance);
         }
@@ -39,25 +40,31 @@ namespace Application.Services
 
         public async Task CreateAsync(CreateMaintenanceDto createMaintenanceDto)
         {
-            // DÜZELTME 1 & 2: Eşyanın aktif (RepairedAt null) bir bakım kaydı var mı diye FindAsync ile bakıyoruz!
-            var existingActiveMaintenance = await unitOfWork.Maintenances.FindAsync(m =>
-                m.InventoryItemId == createMaintenanceDto.InventoryItemId && m.RepairedAt == null);
-
-            // Any() kullanarak null hatası almaktan kurtuluyoruz.
-            if (existingActiveMaintenance.Any())
-            {
-                throw new Exception("Bu cihaza ait devam eden aktif bir bakım kaydı zaten mevcut.");
-            }
-
+            // 1. Önce cihazı bulalım
             var inventoryItem = await unitOfWork.InventoryItems.GetByIdAsync(createMaintenanceDto.InventoryItemId);
             if (inventoryItem == null)
             {
-                throw new Exception("Bakıma alınmak istenen eşya bulunamadı.");
+                throw new NotFoundException("Bakıma alınmak istenen eşya bulunamadı.");
             }
 
-            // Eşyayı bakıma alıyoruz!
+            // 2. Cihaz şu an zimmetli mi? (Zimmetli cihaz önce iade edilmeli)
+            if (inventoryItem.Status == ItemStatus.Assigned)
+            {
+                throw new BadRequestException("Zimmetli olan bir cihaz doğrudan bakıma alınamaz. Önce zimmet iadesi yapmalısınız.");
+            }
+
+            // 3. Cihaz zaten bakımda mı?
+            var existingActiveMaintenance = await unitOfWork.Maintenances.FindAsync(m =>
+                m.InventoryItemId == createMaintenanceDto.InventoryItemId && m.RepairedAt == null);
+
+            if (existingActiveMaintenance.Any())
+            {
+                throw new BadRequestException("Bu cihaza ait devam eden aktif bir bakım kaydı zaten mevcut.");
+            }
+
+            // 4. Her şey yolunda, cihazı bakıma al!
             inventoryItem.Status = ItemStatus.Maintenance;
-            unitOfWork.InventoryItems.Update(inventoryItem); // Eşya durumunu güncellemeyi unutma!
+            unitOfWork.InventoryItems.Update(inventoryItem);
 
             var maintenance = mapper.Map<Maintenance>(createMaintenanceDto);
             await unitOfWork.Maintenances.AddAsync(maintenance);
@@ -69,7 +76,7 @@ namespace Application.Services
             var existingMaintenance = await unitOfWork.Maintenances.GetByIdAsync(updateMaintenanceDto.Id);
             if (existingMaintenance == null)
             {
-                throw new Exception("Güncellenecek bakım kaydı bulunamadı.");
+                throw new NotFoundException("Güncellenecek bakım kaydı bulunamadı.");
             }
 
             // DÜZELTME 3: Erken Taburcu Etme! Sadece yeni veride RepairedAt DOLU geldiğinde durumu değiştir.
@@ -94,13 +101,13 @@ namespace Application.Services
             var existingMaintenance = await unitOfWork.Maintenances.GetByIdAsync(id);
             if (existingMaintenance == null)
             {
-                throw new Exception("Silinecek bakım kaydı bulunamadı.");
+                throw new NotFoundException("Silinecek bakım kaydı bulunamadı.");
             }
 
             // redundant kontrol (existingMaintenance != null) silindi
             if (existingMaintenance.RepairedAt != null)
             {
-                throw new Exception("Bu kaydı silemezsin, cihazın bakımı tamamlanmış.");
+                throw new BadRequestException("Bu kaydı silemezsin, cihazın bakımı tamamlanmış.");
             }
 
             var inventoryItem = await unitOfWork.InventoryItems.GetByIdAsync(existingMaintenance.InventoryItemId);
