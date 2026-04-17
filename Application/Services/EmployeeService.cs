@@ -4,6 +4,7 @@ using Application.DTOs.Employees;
 using Domain.Entities;
 using Application.Interfaces.Services;
 using Domain.Enums;
+using Application.Exceptions;
 
 namespace Application.Services
 {
@@ -19,7 +20,7 @@ namespace Application.Services
             var employee = await unitOfWork.Employees.GetByIdAsync(id);
             if (employee == null)
             {
-                throw new Exception("Aranan kişi bulunamadı.");
+                throw new NotFoundException("Aranan kişi bulunamadı.");
             }
             return mapper.Map<EmployeeDto>(employee);
         }
@@ -28,7 +29,7 @@ namespace Application.Services
             var existingEmployee = await unitOfWork.Employees.GetByEmailAsync(createEmployeeDto.Email);
             if (existingEmployee != null)
             {
-                throw new Exception("Bu e-posta adresli kişi zaten ekli.");
+                throw new BadRequestException("Bu e-posta adresli kişi zaten ekli.");
             }
          var employee= mapper.Map<Employee>(createEmployeeDto);
           await unitOfWork.Employees.AddAsync(employee);
@@ -39,7 +40,12 @@ namespace Application.Services
             var existingEmployee = await unitOfWork.Employees.GetByIdAsync(updateEmployeeDto.Id);
             if (existingEmployee == null)
             {
-                throw new Exception("Güncellenecek kişi bulunamadı.");
+                throw new NotFoundException("Güncellenecek kişi bulunamadı.");
+            }
+            var existingEmailEmployee = await unitOfWork.Employees.GetByEmailAsync(updateEmployeeDto.Email);
+            if (existingEmailEmployee != null && existingEmailEmployee.Id != existingEmployee.Id)
+            {
+                throw new BadRequestException("Bu e-posta adresi zaten başka bir personele ait.");
             }
             mapper.Map(updateEmployeeDto, existingEmployee);
             unitOfWork.Employees.Update(existingEmployee);
@@ -50,7 +56,7 @@ namespace Application.Services
             var existingEmployee = await unitOfWork.Employees.GetByIdAsync(id);
             if (existingEmployee == null)
             {
-                throw new Exception("Silinecek kişi bulunamadı.");
+                throw new NotFoundException("Silinecek kişi bulunamadı.");
             }
        
             if (existingEmployee.AppUserId.HasValue)
