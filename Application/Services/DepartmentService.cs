@@ -66,6 +66,7 @@ namespace Application.Services
             }
             unitOfWork.Departments.Delete(department);
              await unitOfWork.SaveChangesAsync();
+
         }
     }
 }
