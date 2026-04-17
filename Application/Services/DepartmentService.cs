@@ -3,6 +3,7 @@ using Application.Interfaces.Services;
 using AutoMapper;
 using Application.Interfaces;
 using Domain.Entities;
+using Application.Exceptions;
 namespace Application.Services
 {
     public class DepartmentService(IMapper mapper,IUnitOfWork unitOfWork):IDepartmentService
@@ -17,7 +18,7 @@ namespace Application.Services
             var existingDepartment = await unitOfWork.Departments.GetByIdAsync(id);
             if (existingDepartment == null)
             {
-                throw new Exception("Department not found");
+                throw new NotFoundException("Departman bulunamadı");
             }
            return mapper.Map<DepartmentDto>(existingDepartment);
         }
@@ -26,7 +27,7 @@ namespace Application.Services
             var existingDepartment = await unitOfWork.Departments.GetByNameAsync(createDepartmentDto.Name);
             if(existingDepartment != null)
             {
-                throw new Exception("Department already exists");
+                throw new BadRequestException("Departman zaten var");
             }
             var department = mapper.Map<Department>(createDepartmentDto);
             await unitOfWork.Departments.AddAsync(department);
@@ -37,14 +38,14 @@ namespace Application.Services
             var department= await unitOfWork.Departments.GetByIdAsync(updateDepartmentDto.Id);
             if (department == null)
             {
-                throw new Exception("Department not found");
+                throw new NotFoundException("Departman bulunamadı");
             }
           
             var existingNameDept = await unitOfWork.Departments.GetByNameAsync(updateDepartmentDto.Name);
 
             if (existingNameDept != null && existingNameDept.Id != department.Id)
             {
-                throw new Exception("Bu departman adı zaten başka bir departman tarafından kullanılıyor.");
+                throw new BadRequestException("Bu departman adı zaten başka bir departman tarafından kullanılıyor.");
             }
             mapper.Map(updateDepartmentDto, department);
            unitOfWork.Departments.Update(department);
@@ -56,15 +57,16 @@ namespace Application.Services
             var department = await unitOfWork.Departments.GetByIdAsync(id);
             if (department == null)
             {
-                throw new Exception("Department not found");
+                throw new NotFoundException("Departman bulunamadı");
             }
            var employees = await unitOfWork.Employees.GetEmployeesByDepartmentAsync(department.Id);
             if(employees.Any())
             {
-                throw new Exception("Department has employees, cannot be deleted");
+                throw new BadRequestException("Departmana bağlı çalışan var,silinemez");
             }
             unitOfWork.Departments.Delete(department);
              await unitOfWork.SaveChangesAsync();
+
         }
     }
 }
