@@ -1,12 +1,11 @@
 ﻿using Application.DTOs.Universities;
-using Application.Interfaces; // IUnitOfWork burada
+using Application.Exceptions;
 using Application.Interfaces.Services;
 using AutoMapper;
 using Domain.Entities;
-
+using Application.Interfaces;
 namespace Application.Services
 {
-    // Primary Constructor kullanımı gayet güzel (C# 12+)
     public class UniversityService(IUnitOfWork unitOfWork, IMapper mapper) : IUniversityService
     {
         public async Task<List<UniversityDto>> GetAllUniversitiesAsync()
@@ -18,58 +17,64 @@ namespace Application.Services
         public async Task<UniversityDto> GetByIdAsync(int id)
         {
             var university = await unitOfWork.Universities.GetByIdAsync(id);
+        
+            if (university == null)
+            {
+                throw new NotFoundException($"{id} ID'li üniversite bulunamadı.");
+            }
             return mapper.Map<UniversityDto>(university);
         }
 
-        // DÜZELTME 1: Async ve SaveAsync Eklendi
         public async Task CreateAsync(CreateUniversityDto createUniversityDto)
         {
+           
+            var existingUni = await unitOfWork.Universities.GetByNameAsync(createUniversityDto.Name);
+            if (existingUni != null)
+            {
+                throw new BadRequestException("Bu üniversite zaten sistemde kayıtlı.");
+            }
+
             var universityEntity = mapper.Map<University>(createUniversityDto);
-
-            // Repository'e ekle (Henüz DB'ye gitmedi)
             await unitOfWork.Universities.AddAsync(universityEntity);
-
-            // KRİTİK: Değişiklikleri veritabanına onayla!
             await unitOfWork.SaveChangesAsync();
         }
 
         public async Task UpdateAsync(UpdateUniversityDto updateUniversityDto)
         {
-            // Önce gerçek kaydı bul
             var universityEntity = await unitOfWork.Universities.GetByIdAsync(updateUniversityDto.Id);
-
             if (universityEntity == null)
             {
-                // Buraya ileride özel bir NotFoundException yazabiliriz
-                throw new Exception("University not found");
+                throw new NotFoundException("Üniversite bulunamadı");
             }
 
-            // Mevcut kaydın üzerine yeni verileri yaz (Merge)
+           
+            var existingNameUni = await unitOfWork.Universities.GetByNameAsync(updateUniversityDto.Name);
+            if (existingNameUni != null && existingNameUni.Id != universityEntity.Id)
+            {
+                throw new BadRequestException("Bu üniversite adı başka bir kayıt tarafından kullanılıyor.");
+            }
+
             mapper.Map(updateUniversityDto, universityEntity);
-
-            // Repository'i bilgilendir (EF Core'da Tracking açıksa şart değil ama güvenli)
             unitOfWork.Universities.Update(universityEntity);
-
-            // Değişiklikleri Kaydet
             await unitOfWork.SaveChangesAsync();
         }
 
-        // DÜZELTME 2: Delete Mantığı Baştan Aşağı Düzeldi
         public async Task DeleteAsync(int id)
         {
-            // HATA 1: 'await' eksikti. Task dönüyordu, entity değil.
             var universityEntity = await unitOfWork.Universities.GetByIdAsync(id);
-
-            // HATA 2: Değişken ismi yanlıştı (university vs universityEntity)
             if (universityEntity == null)
             {
-                throw new Exception("University not found");
+                throw new NotFoundException("Üniversite bulunamadı");
             }
 
-            // Silinecek entity'i repository'e ver
-            unitOfWork.Universities.Delete(universityEntity);
+      
+            var interns = await unitOfWork.Interns.GetInternsByUniversityAsync(id);
+            if (interns.Any())
+            {
+                throw new BadRequestException("Bu üniversiteye kayıtlı stajyerler var, silinemez!");
+            }
 
-            // KRİTİK: Değişiklikleri Kaydet
+            unitOfWork.Universities.Delete(universityEntity);
             await unitOfWork.SaveChangesAsync();
         }
     }
