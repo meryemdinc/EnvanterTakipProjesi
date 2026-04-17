@@ -1,4 +1,5 @@
 ﻿using Application.DTOs.InventoryItems;
+using Application.Exceptions;
 using Application.Interfaces;
 using Application.Interfaces.Services;
 using AutoMapper;
@@ -19,7 +20,7 @@ namespace Application.Services
         var InventoryItem = await unitOfWork.InventoryItems.GetByIdAsync(id);
             if (InventoryItem == null)
             {
-                throw new Exception("Aranan envanter öğesi bulunamadı.");
+                throw new NotFoundException("Aranan envanter öğesi bulunamadı.");
             }
             return mapper.Map<InventoryItemDto>(InventoryItem);
         }
@@ -35,7 +36,7 @@ namespace Application.Services
             var existingItem = await unitOfWork.InventoryItems.GetByItemCodeAsync(createInventoryItemDto.ItemCode);
             if(existingItem != null)
             {
-                throw new Exception("Bu Demirbaş koduna sahip bir envanter zaten mevcut.");
+                throw new BadRequestException("Bu Demirbaş koduna sahip bir envanter zaten mevcut.");
             }
 
             var inventoryItem= mapper.Map<InventoryItem>(createInventoryItemDto);
@@ -47,7 +48,7 @@ namespace Application.Services
             var existingItem = await unitOfWork.InventoryItems.GetByIdAsync(updateInventoryItemDto.Id);
             if (existingItem == null)
             {
-                throw new Exception("Güncellenmek istenilen envanter bulunamadı.");
+                throw new NotFoundException("Güncellenmek istenilen envanter bulunamadı.");
             }
             //eğer itemCode değiştirilmeye çalışılıyorsa
             if (existingItem.ItemCode != updateInventoryItemDto.ItemCode)
@@ -56,7 +57,7 @@ namespace Application.Services
                //eğer varsa hata fırlat
                 if (itemWithSameCode != null)
                 {
-                    throw new Exception($"'{updateInventoryItemDto.ItemCode}' kodu sistemde başka bir cihaza ait. Lütfen farklı bir kod girin.");
+                    throw new BadRequestException($"'{updateInventoryItemDto.ItemCode}' kodu sistemde başka bir cihaza ait. Lütfen farklı bir kod girin.");
                 }
             }
             mapper.Map(updateInventoryItemDto, existingItem);
@@ -68,14 +69,15 @@ namespace Application.Services
             var existingItem = await unitOfWork.InventoryItems.GetByIdAsync(id);
             if (existingItem == null)
             {
-                throw new Exception("Silinmek istenilen envanter bulunamadı.");
+                throw new NotFoundException("Silinmek istenilen envanter bulunamadı.");
             }
             if(existingItem.Status == ItemStatus.Assigned)
             {
-                throw new Exception("Zimmetli bir envanter silinemez. Önce zimmetini kaldırın.");
+                throw new BadRequestException("Zimmetli bir envanter silinemez. Önce zimmetini kaldırın.");
             }
 
             existingItem.IsDeleted = true;//soft delete
+            unitOfWork.InventoryItems.Update(existingItem);
             await unitOfWork.SaveChangesAsync();
 
         }
