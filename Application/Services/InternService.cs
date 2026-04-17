@@ -4,6 +4,7 @@ using Application.Interfaces;
 using Application.DTOs.Interns;
 using Domain.Entities;
 using Domain.Enums;
+using Application.Exceptions;
 namespace Application.Services
 {
     public class InternService(IMapper mapper,IUnitOfWork unitOfWork):IInternService
@@ -16,7 +17,7 @@ namespace Application.Services
         var intern=await unitOfWork.Interns.GetByIdAsync(id);
             if (intern == null)
             {
-                throw new Exception("Aranan stajyer bulunamadı.");
+                throw new NotFoundException("Aranan stajyer bulunamadı.");
             }
             return mapper.Map<InternDto>(intern);
         }
@@ -24,7 +25,7 @@ namespace Application.Services
         var existingIntern = await unitOfWork.Interns.GetByEmailAsync(createInternDto.Email);
             if (existingIntern != null)
             {
-                throw new Exception("Bu e-posta adresli stajyer zaten ekli.");
+                throw new BadRequestException("Bu e-posta adresli stajyer zaten ekli.");
             }
             var intern = mapper.Map<Intern>(createInternDto);
             await unitOfWork.Interns.AddAsync(intern);
@@ -34,7 +35,12 @@ namespace Application.Services
         var existingIntern=await unitOfWork.Interns.GetByIdAsync(updateInternDto.Id);
             if (existingIntern == null)
             {
-                throw new Exception("Güncellenecek stajyer bulunamadı.");
+                throw new NotFoundException("Güncellenecek stajyer bulunamadı.");
+            }
+            var existingEmailIntern = await unitOfWork.Interns.GetByEmailAsync(updateInternDto.Email);
+            if (existingEmailIntern != null && existingEmailIntern.Id != existingIntern.Id)
+            {
+                throw new BadRequestException("Bu e-posta adresi zaten başka bir stajyere ait.");
             }
             mapper.Map(updateInternDto, existingIntern);
             unitOfWork.Interns.Update(existingIntern);
@@ -45,7 +51,7 @@ namespace Application.Services
         var existingIntern= await unitOfWork.Interns.GetByIdAsync(id);
             if (existingIntern == null)
             {
-                throw new Exception("Silinecek stajyer bulunamadı.");
+                throw new NotFoundException("Silinecek stajyer bulunamadı.");
             }
 
             var activeAssignments = await unitOfWork.Assignments.GetActiveAssignmentsByInternIdAsync(id);
@@ -60,6 +66,7 @@ namespace Application.Services
                     unitOfWork.InventoryItems.Update(assignment.InventoryItem);
                 }
             }
+        
             existingIntern.IsDeleted = true; // Soft delete
             unitOfWork.Interns.Update(existingIntern);
             await unitOfWork.SaveChangesAsync();
