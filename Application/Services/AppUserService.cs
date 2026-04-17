@@ -1,13 +1,10 @@
 ﻿using Application.DTOs.AppUsers;
+using Application.Exceptions;
 using Application.Interfaces;
 using Application.Interfaces.Services;
 using AutoMapper;
 using Domain.Entities;
-
-
-
-namespace Application.Services
-{
+namespace Application.Services;
     public class AppUserService(IUnitOfWork unitOfWork, IMapper mapper, ITokenService tokenService) : IAppUserService
     {
         public async Task<AuthResponseDto> LoginAsync(LoginDto loginDto)
@@ -17,15 +14,15 @@ namespace Application.Services
 
             if (user == null)
             {
-                throw new Exception("Kullanıcı bulunamadı.");
+                throw new NotFoundException("Kullanıcı bulunamadı.");
             }
 
             // 2. ŞİFRE DOĞRULAMA (Kullanıcının girdiği düz şifre vs DB'deki Hash)
-            bool isPasswordValid = BCrypt.Net.BCrypt.Verify(loginDto.Password, user.PasswordHash);
+              bool isPasswordValid = BCrypt.Net.BCrypt.Verify(loginDto.Password, user.PasswordHash);
 
             if (!isPasswordValid)
             {
-                throw new Exception("Hatalı şifre.");
+                throw new BadRequestException("Hatalı şifre.");
             }
 
             // 3. Giriş Başarılı! DTO'ya çevir ve Token ekle
@@ -41,7 +38,7 @@ namespace Application.Services
             var existingUser = await unitOfWork.AppUsers.GetByEmailAsync(registerDto.Email);
             if (existingUser != null)
             {
-                throw new Exception("Bu e-posta adresi zaten kullanımda.");
+                throw new BadRequestException("Bu e-posta adresi zaten kullanımda.");
             }
 
             // 2. DTO'yu Entity'e çevir (Mapper şifreyi atlayacak)
@@ -86,23 +83,18 @@ namespace Application.Services
             var user = await unitOfWork.AppUsers.GetByEmailAsync(email);
             if (user == null)
             {
-                throw new Exception("Kullanıcı bulunamadı.");
+                throw new NotFoundException("Kullanıcı bulunamadı.");
             }
             return mapper.Map<AppUserDto>(user);
         }
 
-        public async Task AssignRoleToUserAsync(string userId, string role)
+        public async Task AssignRoleToUserAsync(int userId, string role)
         {
-            // userId string geldiği için int'e çeviriyoruz
-            if (!int.TryParse(userId, out int id))
-            {
-                throw new Exception("Geçersiz ID formatı.");
-            }
 
-            var user = await unitOfWork.AppUsers.GetByIdAsync(id);
+            var user = await unitOfWork.AppUsers.GetByIdAsync(userId);
             if (user == null)
             {
-                throw new Exception("Kullanıcı bulunamadı.");
+                throw new NotFoundException("Kullanıcı bulunamadı.");
             }
 
             // Rolü güncelle ve Generic Repository'nin Update metodunu çağır
@@ -111,9 +103,4 @@ namespace Application.Services
             await unitOfWork.SaveChangesAsync();
         }
 
-        public Task CreateRoleAsync(string roleName)
-        {
-            throw new NotImplementedException("Role tablosu olmadığı için bu metot kullanılamaz. Rolleri sabit (Constant) olarak yönetmelisiniz.");
-        }
     }
-}
