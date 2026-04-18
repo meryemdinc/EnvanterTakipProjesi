@@ -1,7 +1,7 @@
-﻿
-namespace Application.Exceptions
+﻿namespace Application.Exceptions;
+public class DuplicateCategoryAssignmentException : Exception
 {
- public class DuplicateCategoryAssignmentException
+    public DuplicateCategoryAssignmentException(string message) : base(message)
     {
     }
 }
