@@ -2,6 +2,7 @@
 using Application.DTOs.Interns;
 using Application.Interfaces.Services;
 using Microsoft.AspNetCore.Mvc;
+using Hangfire;
 
 namespace Envanter_Takip_Projesi.Controllers
 {
@@ -24,7 +25,25 @@ namespace Envanter_Takip_Projesi.Controllers
         [HttpPost]
         public async Task<IActionResult> Create(CreateInternDto createInternDto)
         {
-            await internService.CreateAsync(createInternDto);
+            // 1. Stajyeri Veritabanına Kaydet ve Servisten yeni ID'yi al
+            var createdInternId = await internService.CreateAsync(createInternDto);
+
+            // 2. HANGFIRE: Görevin çalışacağı zamanı hesapla (Bitiş tarihinden 3 gün önce)
+            var reminderDate = createInternDto.EndDate.AddDays(-3);
+
+            // 3. Eğer hesaplanan tarih şu andan ilerideyse alarmı kur
+            if (reminderDate > DateTime.UtcNow)
+            {
+                var fullName = $"{createInternDto.FirstName} {createInternDto.LastName}";
+
+                // Hangfire'a diyoruz ki: "IHRReminderService içindeki bu metodu, reminderDate tarihi geldiğinde çalıştır!"
+                BackgroundJob.Schedule<IHRReminderService>(
+                    hrService => hrService.SendInternshipEndingReminderAsync(createdInternId, fullName, createInternDto.Email),
+                    reminderDate
+                );
+            }
+
+            // Controller HTTP cevabı döner (204 No Content)
             return CreateActionResultInstance(Response<NoContent>.Success(204));
         }
 
