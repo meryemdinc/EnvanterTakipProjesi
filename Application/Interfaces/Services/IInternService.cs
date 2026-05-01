@@ -6,7 +6,7 @@ namespace Application.Interfaces.Services
     {
         Task<List<InternDto>> GetAllInternsAsync();
         Task<InternDto> GetByIdAsync(int id);
-        Task CreateAsync(CreateInternDto createInternDto);
+        Task<int> CreateAsync(CreateInternDto createInternDto);
         Task UpdateAsync(UpdateInternDto updateInternDto);
         Task DeleteAsync(int id);
     }
