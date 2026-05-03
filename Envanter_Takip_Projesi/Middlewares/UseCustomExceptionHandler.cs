@@ -1,39 +1,45 @@
 ﻿using Application.DTOs.Common;
+using Application.Exceptions; 
 using Microsoft.AspNetCore.Diagnostics;
 
 namespace Envanter_Takip_Projesi.Middlewares
 {
- 
     public static class CustomExceptionMiddlewareExtensions
     {
-        // 2. Parametre tipi evrensel standart olan IApplicationBuilder yapıldı
         public static void UseCustomExceptionHandler(this IApplicationBuilder app)
         {
-            // this IApplicationBuilder anlamı:
-            // Ey C#, benim yazdığım bu metodu al, Microsoft'un kendi yazdığı
-            // orijinal IApplicationBuilder sınıfının içine gizlice monte et (Extension Method).
-
             app.UseExceptionHandler(errorApp =>
             {
                 errorApp.Run(async context =>
                 {
                     context.Response.ContentType = "application/json";
 
-                    var exceptionHandlerPathFeature = context.Features.Get<IExceptionHandlerPathFeature>();
+                    var exceptionFeature = context.Features.Get<IExceptionHandlerPathFeature>();
 
-                    if (exceptionHandlerPathFeature?.Error != null)
+                    if (exceptionFeature?.Error != null)
                     {
-                        var errorMessage = exceptionHandlerPathFeature.Error.Message;
+                        // 1. Düşen hatayı (Exception) yakaladık
+                        var exception = exceptionFeature.Error;
 
-                        //  HTTP Status Code'u 500 yapıyoruz
-                        context.Response.StatusCode = 500;
+                        // 2. Hatamızın türüne göre HTTP Durum Kodunu (Status Code) belirliyoruz
+                        // C#'ın harika Switch Expression yeteneği!
+                        int statusCode = exception switch
+                        {
+                            NotFoundException => 404, // Bulunamadı
+                            ItemNotAvailableException => 400, // Kötü İstek (Zaten kullanımda vb.)
+                            DuplicateCategoryAssignmentException => 400, // Kötü İstek (Çifte laptop)
+                            AssignmentConflictException => 409, // Çakışma (Tarihler uyuşmuyor)
+                            BadRequestException => 400,
+                            _ => 500 // Yukarıdakilerin hiçbiri değilse (Beklenmedik bir C# hatasıysa) Sunucu Hatası dön
+                        };
 
-                        // Zarfımızı oluşturuyoruz,hata mesajı InternDto,InventoryItemDto döndürmez
-                       // sadece hata mesajı içerir data yok o yuzden T'yi NoContent yapıyoruz
+                        // 3. İsteğin gidişatını (Header) bu yeni koda göre ayarlıyoruz
+                        context.Response.StatusCode = statusCode;
 
-                        var response = Response<NoContent>.Fail(errorMessage, 500, true);
+                        // 4. Standart zarfımızı oluşturuyoruz. Hata mesajını Exception'ın kendi içinden alıyoruz.
+                        var response = Response<NoContent>.Fail(exception.Message, statusCode, true);
 
-                        // JSON olarak Frontend'e fırlatıyoruz
+                        // 5. JSON olarak Frontend'e fırlatıyoruz
                         await context.Response.WriteAsJsonAsync(response);
                     }
                 });
