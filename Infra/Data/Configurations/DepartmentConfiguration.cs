@@ -20,12 +20,12 @@ namespace Infrastructure.Data.Configurations
                 .OnDelete(DeleteBehavior.Restrict);
 
             builder.HasData(
-                new Department { Id = 1, Name = "Frontend", CreatedAt = DateTime.UtcNow },
-                new Department { Id = 2, Name = "Backend", CreatedAt = DateTime.UtcNow },
-                new Department { Id = 3, Name = "Mobile", CreatedAt = DateTime.UtcNow },
-                new Department { Id = 4, Name = "Database", CreatedAt = DateTime.UtcNow },
-                new Department { Id = 5, Name = "Fullstack", CreatedAt = DateTime.UtcNow }
-            );
+          new Department { Id = 1, Name = "Frontend", CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+          new Department { Id = 2, Name = "Backend", CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+          new Department { Id = 3, Name = "Mobile", CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+          new Department { Id = 4, Name = "Database", CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+          new Department { Id = 5, Name = "Fullstack", CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) }
+      );
         }
     }
 }
