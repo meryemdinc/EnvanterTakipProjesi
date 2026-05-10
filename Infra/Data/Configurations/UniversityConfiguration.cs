@@ -15,11 +15,11 @@ public class UniversityConfiguration : IEntityTypeConfiguration<University>
 
 
         builder.HasData(
-            new University { Id = 1, Name = "Eskişehir Osmangazi Üniversitesi", City = "Eskişehir", CreatedAt = DateTime.UtcNow },
-            new University { Id = 2, Name = "Orta Doğu Teknik Üniversitesi", City = "Ankara", CreatedAt = DateTime.UtcNow },
-            new University { Id = 3, Name = "Boğaziçi Üniversitesi", City = "İstanbul", CreatedAt = DateTime.UtcNow },
-            new University { Id = 4, Name = "İstanbul Teknik Üniversitesi", City = "İstanbul", CreatedAt = DateTime.UtcNow }
-        );
+       new University { Id = 1, Name = "Eskişehir Osmangazi Üniversitesi", City = "Eskişehir", CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+       new University { Id = 2, Name = "Orta Doğu Teknik Üniversitesi", City = "Ankara", CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+       new University { Id = 3, Name = "Boğaziçi Üniversitesi", City = "İstanbul", CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+       new University { Id = 4, Name = "İstanbul Teknik Üniversitesi", City = "İstanbul", CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) }
+   );
     }
 }
 
