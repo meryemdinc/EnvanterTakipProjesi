@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
+
 namespace Infrastructure.Data.Configurations
 {
    public class InternConfiguration: IEntityTypeConfiguration<Intern>
@@ -28,6 +29,7 @@ namespace Infrastructure.Data.Configurations
             builder.Property(i => i.Degree).IsRequired();
             builder.Property(i => i.ClassYear).IsRequired();
             builder.Property(i => i.StudentNumber).HasMaxLength(50);
+            builder.Property(x => x.Degree).HasConversion<string>();
 
             builder.ToTable(t => t.HasCheckConstraint("CK_Intern_WorkDays", "\"WorkDaysPerWeek\" >= 1 AND \"WorkDaysPerWeek\" <= 5"));
         }
