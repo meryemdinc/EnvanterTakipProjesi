@@ -1,14 +1,22 @@
-﻿using Application.Interfaces.Services;
-using AutoMapper;
-using Application.Interfaces;
-using Application.DTOs.Maintenances;
-using Domain.Entities;
-using Domain.Enums;
+﻿using Application.DTOs.Maintenances;
 using Application.Exceptions;
+using Application.Interfaces;
+using Application.Interfaces.Services;
+using Application.Managers;
+using AutoMapper;
+using Domain.Entities;
+using MassTransit;
+using Domain.Enums;
+using Application.Messages;
 
 namespace Application.Services
 {
-    public class MaintenanceService(IMapper mapper, IUnitOfWork unitOfWork) : IMaintenanceService
+    // DİKKAT: IPublishEndpoint eklendi!
+    public class MaintenanceService(
+        IMapper mapper,
+        IUnitOfWork unitOfWork,
+        MaintenanceManager maintenanceManager,
+        IPublishEndpoint publishEndpoint) : IMaintenanceService
     {
         public async Task<List<MaintenanceDto>> GetAllMaintenancesAsync()
         {
@@ -47,28 +55,28 @@ namespace Application.Services
                 throw new NotFoundException("Bakıma alınmak istenen eşya bulunamadı.");
             }
 
-            // 2. Cihaz şu an zimmetli mi? (Zimmetli cihaz önce iade edilmeli)
-            if (inventoryItem.Status == ItemStatus.Assigned)
-            {
-                throw new BadRequestException("Zimmetli olan bir cihaz doğrudan bakıma alınamaz. Önce zimmet iadesi yapmalısınız.");
-            }
+            // 2. KURALLARI ÇALIŞTIR
+            maintenanceManager.CheckIfItemIsEligibleForMaintenance(inventoryItem);
+            await maintenanceManager.CheckIfItemAlreadyInMaintenanceAsync(createMaintenanceDto.InventoryItemId);
 
-            // 3. Cihaz zaten bakımda mı?
-            var existingActiveMaintenance = await unitOfWork.Maintenances.FindAsync(m =>
-                m.InventoryItemId == createMaintenanceDto.InventoryItemId && m.RepairedAt == null);
-
-            if (existingActiveMaintenance.Any())
-            {
-                throw new BadRequestException("Bu cihaza ait devam eden aktif bir bakım kaydı zaten mevcut.");
-            }
-
-            // 4. Her şey yolunda, cihazı bakıma al!
+            // 3. İŞ AKIŞI: Cihazı bakıma al!
             inventoryItem.Status = ItemStatus.Maintenance;
             unitOfWork.InventoryItems.Update(inventoryItem);
 
             var maintenance = mapper.Map<Maintenance>(createMaintenanceDto);
             await unitOfWork.Maintenances.AddAsync(maintenance);
             await unitOfWork.SaveChangesAsync();
+
+            // 4. 🚀 RABBITMQ'YA MESAJ FIRLAT (Değişkenler düzeltildi)
+            await publishEndpoint.Publish(new MaintenanceStartedEvent
+            {
+                ItemId = inventoryItem.Id,
+                ItemName = $"{inventoryItem.Brand} {inventoryItem.Model}".Trim(),
+                EmployeeEmail = "it-destek@sirket.com", // Şimdilik statik IT e-postası (Test için)
+
+                // NOT: Eğer DTO sınıfında 'Description' yerine 'Notes' yazıyorsa burayı createMaintenanceDto.Notes olarak değiştir!
+                MaintenanceReason = createMaintenanceDto.Description
+            });
         }
 
         public async Task UpdateAsync(UpdateMaintenanceDto updateMaintenanceDto)
@@ -79,8 +87,7 @@ namespace Application.Services
                 throw new NotFoundException("Güncellenecek bakım kaydı bulunamadı.");
             }
 
-            // DÜZELTME 3: Erken Taburcu Etme! Sadece yeni veride RepairedAt DOLU geldiğinde durumu değiştir.
-            // Ayrıca eski kaydın RepairedAt değerinin boş olduğundan emin ol ki, zaten tamir edilmiş cihazı tekrar Available yapmaya çalışmasın.
+            // İŞ AKIŞI: Erken Taburcu Etme
             if (existingMaintenance.RepairedAt == null && updateMaintenanceDto.RepairedAt != null)
             {
                 var inventoryItem = await unitOfWork.InventoryItems.GetByIdAsync(existingMaintenance.InventoryItemId);
@@ -104,21 +111,19 @@ namespace Application.Services
                 throw new NotFoundException("Silinecek bakım kaydı bulunamadı.");
             }
 
-            // redundant kontrol (existingMaintenance != null) silindi
-            if (existingMaintenance.RepairedAt != null)
-            {
-                throw new BadRequestException("Bu kaydı silemezsin, cihazın bakımı tamamlanmış.");
-            }
+            // 1. KURALI ÇALIŞTIR
+            maintenanceManager.CheckIfMaintenanceCanBeDeleted(existingMaintenance);
 
+            // 2. İŞ AKIŞI: Bakım iptal edildiğine göre cihazı "Hasarlı" durumuna geri çek
             var inventoryItem = await unitOfWork.InventoryItems.GetByIdAsync(existingMaintenance.InventoryItemId);
             if (inventoryItem != null && inventoryItem.Status == ItemStatus.Maintenance)
             {
-                // Bakım iptal edildiğine göre cihazı "Hasarlı" durumuna geri çekiyoruz. 
                 inventoryItem.Status = ItemStatus.Damaged;
                 unitOfWork.InventoryItems.Update(inventoryItem);
             }
 
-            existingMaintenance.IsDeleted = true; // Soft delete
+            // 3. SİL (Soft Delete)
+            existingMaintenance.IsDeleted = true;
             unitOfWork.Maintenances.Update(existingMaintenance);
             await unitOfWork.SaveChangesAsync();
         }
