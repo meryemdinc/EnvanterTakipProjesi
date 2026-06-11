@@ -2,22 +2,28 @@
 using Application.Exceptions;
 using Application.Interfaces;
 using Application.Interfaces.Services;
+using Application.Managers;
+using Application.Messages; // RabbitMQ Mesaj şablonumuz için eklendi
 using AutoMapper;
 using Domain.Entities;
 using Domain.Enums;
+using MassTransit; // IPublishEndpoint için eklendi
 
 namespace Application.Services
 {
-    public class AssignmentService(IUnitOfWork unitOfWork, IMapper mapper) :IAssignmentService
+    // DİKKAT: IPublishEndpoint publishEndpoint parametresi eklendi!
+    public class AssignmentService(
+        IUnitOfWork unitOfWork,
+        IMapper mapper,
+        AssignmentManager assignmentManager,
+        IPublishEndpoint publishEndpoint) : IAssignmentService
     {
         public async Task<List<AssignmentDto>> GetAllAssignmentsAsync()
         {
-            
             var assignments = await unitOfWork.Assignments.GetAllAsync();
-
-            // Elimizdeki "assignments" değişkenini (Entity listesi), DTO listesine çevirdik
             return mapper.Map<List<AssignmentDto>>(assignments);
         }
+
         public async Task<AssignmentDto> GetByIdAsync(int id)
         {
             var assignment = await unitOfWork.Assignments.GetByIdAsync(id);
@@ -28,46 +34,43 @@ namespace Application.Services
             return mapper.Map<AssignmentDto>(assignment);
         }
 
-        // Yeni zimmet oluşturma
         public async Task CreateAsync(CreateAssignmentDto createAssignmentDto)
         {
-            // 1. Önce zimmetlenecek eşyayı bulalım
+            // 1. Eşyayı bul
             var inventoryItem = await unitOfWork.InventoryItems.GetByIdAsync(createAssignmentDto.InventoryItemId);
-
             if (inventoryItem == null)
             {
                 throw new NotFoundException("Zimmetlenmek istenen eşya bulunamadı.");
             }
 
-            // 2. Bu eşya şu an boşta mı? (Sadece Available olanlar zimmetlenebilir)
-            if (inventoryItem.Status != ItemStatus.Available)
-            {
-                throw new ItemNotAvailableException($"Bu eşya şu anda zimmetlenemez. Mevcut durumu: {inventoryItem.Status}");
-            }
-            //3. Aynı personele/stajyere aynı kategoriden başka bir eşya zimmetlenemez kuralını kontrol edelim
-            var existingAssignments = await unitOfWork.Assignments.GetAllAsync();
-            var hasSameCategoryItem = existingAssignments.Any(a =>
-                a.EmployeeId == createAssignmentDto.EmployeeId && // Aynı stajyer
-                a.ActualReturnAt == null &&                           // Eşyayı henüz iade etmemiş (Aktif)
-                a.InventoryItem.Category == inventoryItem.Category); // Aynı kategori
+            // 2. KURALLARI ÇALIŞTIR (Hata varsa fırlatır, kod aşağıya inmez)
+            assignmentManager.CheckIfItemIsAvailableForAssignment(inventoryItem);
+            await assignmentManager.CheckIfUserAlreadyHasSameCategoryItemAsync(createAssignmentDto.EmployeeId, inventoryItem.Category);
 
-            if (hasSameCategoryItem)
-                throw new DuplicateCategoryAssignmentException("Bu personele/stajyere aynı kategoriden ikinci bir eşya zimmetlenemez!");
-            
-
-            // 4. Eşya boşta! O zaman zimmet işlemini yap
+            // 3. Kurallardan geçtiyse zimmet işlemini yap
             var assignment = mapper.Map<Assignment>(createAssignmentDto);
             await unitOfWork.Assignments.AddAsync(assignment);
 
-            // 5. Eşyanın durumunu "zimmetli" olarak güncelle! 
+            // 4. Eşya durumunu güncelle
             inventoryItem.Status = ItemStatus.Assigned;
             unitOfWork.InventoryItems.Update(inventoryItem);
 
-            // 6. Her ikisini de (Zimmet kaydı ve Eşya durum güncellemesi) aynı anda kaydet
+            // 5. Kaydet (Veritabanı transaction işlemi burada biter)
             await unitOfWork.SaveChangesAsync();
+
+            // 6. 🚀 RABBITMQ'YA MESAJ FIRLAT
+            // Name özelliği olmadığı için Brand, Model ve ItemCode'u birleştirerek anlamlı bir isim oluşturuyoruz.
+            string deviceName = $"{inventoryItem.Brand} {inventoryItem.Model} ({inventoryItem.ItemCode})".Trim();
+
+            await publishEndpoint.Publish(new InventoryAssignedEvent
+            {
+                EmployeeFullName = "Meryem Dinç",
+                EmployeeEmail = "meryem@esogu.edu.tr",
+                ItemName = deviceName, // Birleştirdiğimiz metni buraya veriyoruz
+                AssignedAt = DateTime.UtcNow
+            });
         }
 
-        // Hatalı zimmet düzeltme
         public async Task UpdateAsync(UpdateAssignmentDto updateAssignmentDto)
         {
             var existingAssignment = await unitOfWork.Assignments.GetByIdAsync(updateAssignmentDto.Id);
@@ -75,13 +78,12 @@ namespace Application.Services
             {
                 throw new NotFoundException("Güncellenecek zimmet kaydı bulunamadı.");
             }
-            //Map(kaynak,hedef)-> existingAssignment'a updateAssignmentDto ı kopyalar,üzerine yapıştırır.
+
             mapper.Map(updateAssignmentDto, existingAssignment);
             unitOfWork.Assignments.Update(existingAssignment);
             await unitOfWork.SaveChangesAsync();
         }
 
-        // ÖZEL: Zimmeti iade alma (Stajyer bilgisayarı geri getirdi)
         public async Task ReturnItemAsync(ReturnAssignmentDto returnAssignmentDto)
         {
             var existingAssignment = await unitOfWork.Assignments.GetByIdAsync(returnAssignmentDto.Id);
@@ -90,30 +92,32 @@ namespace Application.Services
                 throw new NotFoundException("Güncellenecek zimmet kaydı bulunamadı.");
             }
 
-            if (existingAssignment.ActualReturnAt != null)
-                throw new BadRequestException("Bu zimmet zaten daha önceden iade edilmiş!");
-           
+            // 1. KURALI ÇALIŞTIR: Zaten iade edilmiş mi?
+            assignmentManager.CheckIfAlreadyReturned(existingAssignment);
+
+            // 2. İade işlemini gerçekleştir
             mapper.Map(returnAssignmentDto, existingAssignment);
             unitOfWork.Assignments.Update(existingAssignment);
-            var inventoryItem = await unitOfWork.InventoryItems.GetByIdAsync(existingAssignment.InventoryItemId);
 
+            // 3. Eşyayı depoya (Available) geri al
+            var inventoryItem = await unitOfWork.InventoryItems.GetByIdAsync(existingAssignment.InventoryItemId);
             if (inventoryItem != null)
             {
-                inventoryItem.Status= ItemStatus.Available; // Eşyayı tekrar kullanılabilir yapıyoruz
-
+                inventoryItem.Status = ItemStatus.Available;
                 unitOfWork.InventoryItems.Update(inventoryItem);
             }
-            await unitOfWork.SaveChangesAsync();
 
+            await unitOfWork.SaveChangesAsync();
         }
 
         public async Task DeleteAsync(int id)
         {
-            var existingAssignment =await unitOfWork.Assignments.GetByIdAsync(id);
+            var existingAssignment = await unitOfWork.Assignments.GetByIdAsync(id);
             if (existingAssignment == null)
             {
                 throw new NotFoundException("Silinecek zimmet kaydı bulunamadı.");
             }
+
             unitOfWork.Assignments.Delete(existingAssignment);
             await unitOfWork.SaveChangesAsync();
         }
