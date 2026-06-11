@@ -246,5 +246,3 @@ Envanter_Takip_Projesi/
 
 ---
 
-
-```
