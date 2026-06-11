@@ -1,57 +1,85 @@
 ﻿using Application.DTOs.Departments;
-using Application.Interfaces.Services;
-using AutoMapper;
-using Application.Interfaces;
-using Domain.Entities;
 using Application.Exceptions;
+using Application.Interfaces;
+using Application.Interfaces.Services;
+using Application.Managers;
+using AutoMapper;
+using Domain.Entities;
+
 namespace Application.Services
 {
-    public class DepartmentService(IMapper mapper,IUnitOfWork unitOfWork):IDepartmentService
+    // DİKKAT: ICacheService cacheService parametresini buraya ekledik!
+    public class DepartmentService(
+        IUnitOfWork unitOfWork,
+        IMapper mapper,
+        DepartmentManager departmentManager,
+        ICacheService cacheService) : IDepartmentService
     {
-       public async Task<List<DepartmentDto>> GetAllDepartmentsAsync()
+        private const string CacheKey = "all_departments";
+
+        public async Task<List<DepartmentDto>> GetAllDepartmentsAsync()
         {
+            // 1. Önce Cache'e bak!
+            var cachedDepartments = await cacheService.GetAsync<List<DepartmentDto>>(CacheKey);
+
+            if (cachedDepartments != null)
+            {
+                return cachedDepartments; // Veritabanına hiç gitmedik, saniyesinde döndük!
+            }
+
+            // 2. Cache'de yoksa Veritabanından (DB) al ve ID'ye göre SIRALA (Sona gitme sorununu çözer)
             var departments = await unitOfWork.Departments.GetAllAsync();
-           return mapper.Map<List<DepartmentDto>>(departments);
+            var sortedList = departments.OrderBy(d => d.Id).ToList();
+            var dtoList = mapper.Map<List<DepartmentDto>>(sortedList);
+
+            // 3. Bir dahaki sefere hızlı gelsin diye Cache'e kaydet (Örn: 2 saat kalsın)
+            await cacheService.SetAsync(CacheKey, dtoList, TimeSpan.FromHours(2));
+
+            return dtoList;
         }
-       public async Task<DepartmentDto> GetByIdAsync(int id)
+
+        public async Task<DepartmentDto> GetByIdAsync(int id)
         {
             var existingDepartment = await unitOfWork.Departments.GetByIdAsync(id);
             if (existingDepartment == null)
             {
                 throw new NotFoundException("Departman bulunamadı");
             }
-           return mapper.Map<DepartmentDto>(existingDepartment);
+            return mapper.Map<DepartmentDto>(existingDepartment);
         }
+
         public async Task CreateAsync(CreateDepartmentDto createDepartmentDto)
         {
-            var existingDepartment = await unitOfWork.Departments.GetByNameAsync(createDepartmentDto.Name);
-            if(existingDepartment != null)
-            {
-                throw new BadRequestException("Departman zaten var");
-            }
+            await departmentManager.CheckIfNameIsUniqueAsync(createDepartmentDto.Name);
+
             var department = mapper.Map<Department>(createDepartmentDto);
             await unitOfWork.Departments.AddAsync(department);
             await unitOfWork.SaveChangesAsync();
+
+            // YENİ BİR DEPARTMAN EKLENDİ! Eski listeyi çöpe atalım ki yeni girenler listelensin
+            await cacheService.RemoveAsync(CacheKey);
         }
-      public async Task UpdateAsync(UpdateDepartmentDto updateDepartmentDto)
+
+        public async Task UpdateAsync(UpdateDepartmentDto updateDepartmentDto)
         {
-            var department= await unitOfWork.Departments.GetByIdAsync(updateDepartmentDto.Id);
+            var department = await unitOfWork.Departments.GetByIdAsync(updateDepartmentDto.Id);
             if (department == null)
             {
                 throw new NotFoundException("Departman bulunamadı");
             }
-          
-            var existingNameDept = await unitOfWork.Departments.GetByNameAsync(updateDepartmentDto.Name);
 
-            if (existingNameDept != null && existingNameDept.Id != department.Id)
-            {
-                throw new BadRequestException("Bu departman adı zaten başka bir departman tarafından kullanılıyor.");
-            }
+            // 1. KURALI ÇALIŞTIR: Yeni isim başka bir departmanda kullanılıyor mu? (Kendi ID'sini yolluyoruz)
+            await departmentManager.CheckIfNameIsUniqueAsync(updateDepartmentDto.Name, department.Id);
+
+            // 2. GÜNCELLE
             mapper.Map(updateDepartmentDto, department);
-           unitOfWork.Departments.Update(department);
-           await unitOfWork.SaveChangesAsync();
+            unitOfWork.Departments.Update(department);
+            await unitOfWork.SaveChangesAsync();
 
+            // VERİ GÜNCELLENDİ -> CACHE UÇURULMALI
+            await cacheService.RemoveAsync(CacheKey);
         }
+
         public async Task DeleteAsync(int id)
         {
             var department = await unitOfWork.Departments.GetByIdAsync(id);
@@ -59,14 +87,16 @@ namespace Application.Services
             {
                 throw new NotFoundException("Departman bulunamadı");
             }
-           var employees = await unitOfWork.Employees.GetEmployeesByDepartmentAsync(department.Id);
-            if(employees.Any())
-            {
-                throw new BadRequestException("Departmana bağlı çalışan var,silinemez");
-            }
-            unitOfWork.Departments.Delete(department);
-             await unitOfWork.SaveChangesAsync();
 
+            // 1. KURALI ÇALIŞTIR: İçeride çalışan personel var mı?
+            await departmentManager.CheckIfHasEmployeesBeforeDeleteAsync(department.Id);
+
+            // 2. SİL
+            unitOfWork.Departments.Delete(department);
+            await unitOfWork.SaveChangesAsync();
+
+            // VERİ SİLİNDİ -> CACHE UÇURULMALI
+            await cacheService.RemoveAsync(CacheKey);
         }
     }
 }
